@@ -15,15 +15,15 @@ logger = logging.getLogger(__name__)
 
 class WarehouseManager:
     """Manages data warehouse operations"""
-    
+
     def __init__(self, database_url: str = DATABASE_URL):
         """Initialize warehouse manager"""
         self.database_url = database_url
         self.engine = None
-        
+
         # Ensure warehouse directory exists
         WAREHOUSE_DIR.mkdir(exist_ok=True)
-        
+
     def connect(self):
         """Create database connection"""
         try:
@@ -32,12 +32,12 @@ class WarehouseManager:
         except Exception as e:
             logger.error(f"Failed to connect to database: {e}")
             raise
-    
+
     def create_tables(self):
         """Create warehouse tables"""
         if not self.engine:
             self.connect()
-            
+
         # DDL for dimension tables
         ddl_statements = [
             # Dimension: Sensors
@@ -50,7 +50,7 @@ class WarehouseManager:
                 updated_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             """,
-            
+
             # Dimension: Locations
             f"""
             CREATE TABLE IF NOT EXISTS {DIM_LOCATION_TABLE} (
@@ -59,12 +59,12 @@ class WarehouseManager:
                 created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             """,
-            
+
             # Dimension: Time
             f"""
             CREATE TABLE IF NOT EXISTS {DIM_TIME_TABLE} (
                 time_key INTEGER PRIMARY KEY AUTOINCREMENT,
-                full_date DATE UNIQUE NOT NULL,
+                full_date DATE NOT NULL,
                 year INTEGER,
                 month INTEGER,
                 day INTEGER,
@@ -72,10 +72,11 @@ class WarehouseManager:
                 day_of_week INTEGER,
                 is_weekend BOOLEAN,
                 time_period VARCHAR(20),
-                created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE (full_date, hour)
             )
             """,
-            
+
             # Fact Table: Sensor Readings
             f"""
             CREATE TABLE IF NOT EXISTS {FACT_TABLE} (
@@ -105,7 +106,7 @@ class WarehouseManager:
             )
             """
         ]
-        
+
         # Create indexes
         index_statements = [
             f"CREATE INDEX IF NOT EXISTS idx_fact_timestamp ON {FACT_TABLE}(timestamp)",
@@ -113,76 +114,76 @@ class WarehouseManager:
             f"CREATE INDEX IF NOT EXISTS idx_fact_location_key ON {FACT_TABLE}(location_key)",
             f"CREATE INDEX IF NOT EXISTS idx_fact_time_key ON {FACT_TABLE}(time_key)",
         ]
-        
+
         try:
             with self.engine.connect() as conn:
                 # Create tables
                 for ddl in ddl_statements:
                     conn.execute(text(ddl))
-                    
+
                 # Create indexes
                 for idx in index_statements:
                     conn.execute(text(idx))
-                    
+
                 conn.commit()
                 logger.info("Tables and indexes created successfully")
-                
+
         except Exception as e:
             logger.error(f"Failed to create tables: {e}")
             raise
-    
+
     def get_table_info(self) -> Dict:
         """Get information about warehouse tables"""
         if not self.engine:
             self.connect()
-            
+
         info = {}
         tables = [FACT_TABLE, DIM_SENSOR_TABLE, DIM_LOCATION_TABLE, DIM_TIME_TABLE]
-        
+
         try:
             with self.engine.connect() as conn:
                 for table in tables:
                     # Get row count
                     result = conn.execute(text(f"SELECT COUNT(*) FROM {table}")).fetchone()
                     count = result[0] if result else 0
-                    
+
                     # Get table schema
                     schema = conn.execute(text(f"PRAGMA table_info({table})")).fetchall()
-                    
+
                     info[table] = {
                         'row_count': count,
                         'schema': schema
                     }
-                    
+
         except Exception as e:
             logger.error(f"Failed to get table info: {e}")
             raise
-            
+
         return info
-    
+
     def execute_query(self, query: str) -> pd.DataFrame:
         """Execute SQL query and return results as DataFrame"""
         if not self.engine:
             self.connect()
-            
+
         try:
             return pd.read_sql_query(query, self.engine)
         except Exception as e:
             logger.error(f"Failed to execute query: {e}")
             raise
-    
+
     def bulk_insert(self, df: pd.DataFrame, table_name: str, if_exists: str = 'append'):
         """Bulk insert DataFrame to table"""
         if not self.engine:
             self.connect()
-            
+
         try:
             df.to_sql(table_name, self.engine, if_exists=if_exists, index=False)
             logger.info(f"Successfully inserted {len(df)} rows to {table_name}")
         except Exception as e:
             logger.error(f"Failed to insert data to {table_name}: {e}")
             raise
-    
+
     def close(self):
         """Close database connection"""
         if self.engine:

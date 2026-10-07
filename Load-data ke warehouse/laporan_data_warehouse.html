@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Laporan ETL Data Warehouse Sensor IoT</title>
+<style>
+  @page { size: A4; margin: 18mm 17mm; }
+  body { font-family: Arial, sans-serif; color: #1f2937; line-height: 1.5; font-size: 11pt; }
+  h1 { color: #123b63; font-size: 24pt; margin-bottom: 6px; }
+  h2 { color: #123b63; border-bottom: 2px solid #2f80b7; padding-bottom: 4px; margin-top: 24px; }
+  h3 { color: #245b80; margin-bottom: 4px; }
+  .cover { text-align: center; padding-top: 95px; page-break-after: always; }
+  .cover .line { width: 90px; border-top: 4px solid #2f80b7; margin: 25px auto; }
+  .subtitle { color: #52606d; font-size: 14pt; }
+  .meta { margin: 45px auto; width: 70%; border-collapse: collapse; text-align: left; }
+  .meta td { padding: 8px 10px; border-bottom: 1px solid #d9e2ec; }
+  .meta td:first-child { font-weight: bold; width: 38%; }
+  .page-break { page-break-before: always; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; }
+  th { background: #123b63; color: white; text-align: left; }
+  th, td { border: 1px solid #cbd5e1; padding: 7px 8px; }
+  tr:nth-child(even) { background: #f4f7fa; }
+  .cards { display: flex; gap: 10px; margin: 12px 0; }
+  .card { flex: 1; background: #eef6fb; border-left: 4px solid #2f80b7; padding: 10px; }
+  .number { display: block; color: #123b63; font-size: 18pt; font-weight: bold; }
+  .note { background: #fff8e6; border-left: 4px solid #d69e2e; padding: 10px 12px; }
+  .success { background: #edf9f1; border-left: 4px solid #2f855a; padding: 10px 12px; }
+  li { margin: 5px 0; }
+  .footer { color: #64748b; font-size: 9pt; margin-top: 28px; }
+</style>
+</head>
+<body>
+
+<section class="cover">
+  <h1>LAPORAN IMPLEMENTASI<br>DATA WAREHOUSE</h1>
+  <div class="line"></div>
+  <p class="subtitle">ETL Data Sensor IoT Menggunakan Python dan SQLite</p>
+  <table class="meta">
+    <tr><td>Dataset</td><td>processed_sensor_data_20250930_092513.csv</td></tr>
+    <tr><td>Teknologi</td><td>Python, Pandas, SQLAlchemy, SQLite</td></tr>
+    <tr><td>Arsitektur</td><td>Star schema: fact table dan dimension tables</td></tr>
+    <tr><td>Status</td><td>Selesai dan tervalidasi</td></tr>
+    <tr><td>Tanggal laporan</td><td>7 Oktober 2026</td></tr>
+  </table>
+  <p class="footer">Dokumen ini disusun berdasarkan eksekusi notebook dan pemeriksaan database hasil ETL.</p>
+</section>
+
+<h2>1. Ringkasan Eksekutif</h2>
+<p>
+  Proyek ini mengimplementasikan pipeline Extract, Transform, Load (ETL) untuk
+  memuat data pengukuran sensor IoT ke dalam data warehouse berbasis SQLite.
+  Data berhasil diekstrak dari CSV, divalidasi, dibersihkan, ditransformasi,
+  dimuat ke star schema, dan dianalisis menggunakan query SQL.
+</p>
+<div class="success">
+  <strong>Kesimpulan utama:</strong> pipeline berhasil dijalankan dari awal sampai
+  akhir tanpa error, database berisi 14.400 fact records, dan skor kualitas data
+  tercatat 100%.
+</div>
+<div class="cards">
+  <div class="card"><span class="number">28.814</span>baris sumber</div>
+  <div class="card"><span class="number">14.400</span>fact records unik</div>
+  <div class="card"><span class="number">100%</span>skor kualitas</div>
+  <div class="card"><span class="number">4</span>tabel warehouse</div>
+</div>
+
+<h2>2. Tujuan Implementasi</h2>
+<ul>
+  <li>Membangun pipeline ETL yang terstruktur dan dapat dijalankan ulang.</li>
+  <li>Membersihkan dan memvalidasi data sensor sebelum dimuat ke warehouse.</li>
+  <li>Merancang star schema untuk kebutuhan analitik.</li>
+  <li>Menyediakan query analitik untuk memperoleh insight kualitas udara.</li>
+  <li>Memverifikasi integritas data dan jumlah record hasil pemuatan.</li>
+</ul>
+
+<h2>3. Sumber dan Karakteristik Data</h2>
+<table>
+  <tr><th>Karakteristik</th><th>Hasil</th></tr>
+  <tr><td>Format sumber</td><td>CSV</td></tr>
+  <tr><td>Jumlah baris mentah</td><td>28.814</td></tr>
+  <tr><td>Jumlah kolom</td><td>25</td></tr>
+  <tr><td>Periode pembacaan</td><td>Timestamp sensor dengan 1.440 kombinasi waktu</td></tr>
+  <tr><td>Sensor</td><td>10 sensor</td></tr>
+  <tr><td>Lokasi</td><td>5 lokasi</td></tr>
+  <tr><td>Data utama</td><td>Timestamp, sensor, lokasi, suhu, kelembapan, tekanan, dan AQI</td></tr>
+</table>
+
+<h2>4. Proses ETL</h2>
+<h3>4.1 Extract</h3>
+<p>Data dibaca menggunakan Pandas dari file CSV sumber. Struktur kolom dan jumlah baris diperiksa sebelum transformasi.</p>
+<h3>4.2 Transform</h3>
+<ul>
+  <li>Timestamp dikonversi ke tipe datetime.</li>
+  <li>Nama lokasi distandardisasi.</li>
+  <li>Baris duplikat dihapus dengan mempertahankan kemunculan pertama.</li>
+  <li>Nilai numerik diperiksa terhadap batas kewajaran.</li>
+  <li>Nilai di luar rentang ditangani dengan clipping sesuai aturan kualitas data.</li>
+  <li>Nilai numerik yang kosong diisi menggunakan median kolom.</li>
+</ul>
+<div class="note">
+  Setelah standardisasi nama lokasi, transformasi mengidentifikasi 14.414 baris
+  sebagai duplikat. Hal ini konsisten dengan pola data sumber yang memuat
+  pembacaan sensor berulang. Setelah pembersihan, tersisa 14.400 record unik
+  untuk fact table.
+</div>
+<h3>4.3 Load</h3>
+<p>
+  Data dimuat ke SQLite menggunakan batch processing dan relasi foreign key.
+  Proses bersifat idempoten terhadap database yang sudah berisi data; pada
+  eksekusi validasi terakhir, data telah tersedia sehingga tidak dimuat ulang.
+</p>
+
+<h2>5. Rancangan Data Warehouse</h2>
+<p>Warehouse menggunakan pendekatan star schema dengan satu fact table dan tiga dimension tables.</p>
+<table>
+  <tr><th>Tabel</th><th>Peran</th><th>Jumlah Record</th></tr>
+  <tr><td>fact_sensor_readings</td><td>Fakta pengukuran sensor dan metrik turunan</td><td>14.400</td></tr>
+  <tr><td>dim_sensors</td><td>Informasi master sensor</td><td>10</td></tr>
+  <tr><td>dim_locations</td><td>Informasi lokasi sensor</td><td>5</td></tr>
+  <tr><td>dim_time</td><td>Dimensi tanggal, jam, periode, dan hari</td><td>1.440</td></tr>
+</table>
+<p>
+  Index dibuat pada timestamp dan foreign key utama untuk mendukung query
+  berdasarkan waktu, sensor, lokasi, dan dimensi waktu.
+</p>
+
+<h2>6. Validasi dan Kualitas Data</h2>
+<table>
+  <tr><th>Indikator</th><th>Hasil</th><th>Status</th></tr>
+  <tr><td>Kolom wajib</td><td>Tersedia</td><td>Berhasil</td></tr>
+  <tr><td>Transformasi timestamp</td><td>Berhasil dikonversi</td><td>Berhasil</td></tr>
+  <tr><td>Deduplikasi</td><td>14.414 baris dihapus</td><td>Berhasil</td></tr>
+  <tr><td>Fact records</td><td>14.400</td><td>Berhasil</td></tr>
+  <tr><td>Skor kualitas data</td><td>100,0%</td><td>Berhasil</td></tr>
+  <tr><td>Validasi eksekusi notebook</td><td>Berjalan tanpa error</td><td>Berhasil</td></tr>
+</table>
+
+<h2>7. Hasil Analitik</h2>
+<table>
+  <tr><th>Analisis</th><th>Hasil</th></tr>
+  <tr><td>Lokasi dengan kualitas udara terbaik</td><td>Location_D</td></tr>
+  <tr><td>Lokasi dengan AQI tertinggi</td><td>Location_A</td></tr>
+  <tr><td>Periode dengan AQI rata-rata terendah</td><td>Night</td></tr>
+  <tr><td>Aktivitas sensor</td><td>Seluruh sensor memiliki 1.440 pembacaan; tidak ada sensor tunggal yang paling aktif</td></tr>
+</table>
+<p>
+  Hasil tersebut diperoleh dari agregasi rata-rata AQI, jumlah pembacaan per
+  lokasi dan periode waktu, serta perbandingan aktivitas sensor. Karena semua
+  sensor memiliki jumlah pembacaan yang sama, hasil query yang menampilkan
+  SENSOR_001 merupakan tie-break, bukan keunggulan jumlah pembacaan.
+</p>
+
+<h2>8. Kendala dan Perbaikan</h2>
+<ul>
+  <li>
+    Ditemukan karakter asing pada kode <em>data_loader.py</em> yang menimbulkan
+    <code>IndentationError</code>. Karakter tersebut dihapus dan file berhasil
+    lolos pemeriksaan sintaks.
+  </li>
+  <li>
+    Ringkasan notebook sebelumnya menyebut seluruh record sebagai “loaded”,
+    padahal database sudah berisi data. Ringkasan diperbaiki menjadi “records in
+    warehouse” dan “loaded this run” agar interpretasinya akurat.
+  </li>
+  <li>
+    Tampilan struktur proyek dibatasi agar tidak mencetak seluruh isi virtual
+    environment.
+  </li>
+</ul>
+
+<h2>9. Kesimpulan dan Rekomendasi</h2>
+<p>
+  Implementasi data warehouse sensor IoT telah selesai dan memenuhi tujuan
+  utama. Pipeline dapat membaca data, melakukan transformasi, memuat star
+  schema, menjalankan analitik, dan menghasilkan metrik kualitas yang dapat
+  diverifikasi.
+</p>
+<p><strong>Rekomendasi pengembangan berikutnya:</strong></p>
+<ul>
+  <li>Menambahkan scheduler seperti Apache Airflow untuk otomatisasi ETL.</li>
+  <li>Membangun dashboard monitoring AQI dan kondisi sensor.</li>
+  <li>Menambahkan alert untuk anomali dan penurunan kualitas data.</li>
+  <li>Mengembangkan forecasting AQI dan deteksi anomali.</li>
+  <li>Menerapkan kontrol akses, dokumentasi lineage, dan governance data.</li>
+</ul>
+
+<h2>10. Artefak Proyek</h2>
+<table>
+  <tr><th>Artefak</th><th>Lokasi</th></tr>
+  <tr><td>Notebook ETL</td><td>hands_on_data_warehouse.ipynb</td></tr>
+  <tr><td>Modul loader</td><td>src/data_loader.py</td></tr>
+  <tr><td>Database warehouse</td><td>warehouse/sensor_warehouse.db</td></tr>
+  <tr><td>Dataset sumber</td><td>data/processed_sensor_data_20250930_092513.csv</td></tr>
+</table>
+<p class="footer">Laporan dibuat berdasarkan hasil eksekusi notebook dan verifikasi langsung terhadap database warehouse.</p>
+</body>
+</html>
