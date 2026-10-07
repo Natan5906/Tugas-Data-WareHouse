@@ -1,0 +1,8 @@
+Dependency environment verification
+Interpreter: /workspaces/.venv/bin/python
+
+pandas: available (version 3.0.6)
+numpy: available (version 2.4.6)
+sqlalchemy: available (version 2.1.1)
+matplotlib: available (version 3.11.2)
+jupyter: available (version installed)

@@ -1,0 +1,11 @@
+dim_sensors: 10
+dim_locations: 5
+dim_time: 1440
+fact_sensor_readings: 14400
+
+Schema tables:
+- dim_locations
+- dim_sensors
+- dim_time
+- fact_sensor_readings
+- sqlite_sequence

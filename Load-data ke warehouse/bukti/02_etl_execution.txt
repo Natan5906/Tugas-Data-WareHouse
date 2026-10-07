@@ -1,0 +1,5 @@
+Notebook: hands_on_data_warehouse.ipynb
+Total code cells: 27
+Executed code cells: 27
+Unexecuted code cells: 0
+Status: SUCCESS
