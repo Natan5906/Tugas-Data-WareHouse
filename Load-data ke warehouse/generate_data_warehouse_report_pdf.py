@@ -98,16 +98,23 @@ def _add_image(fig, path: Path, x: float, y: float, w: float, h: float, caption:
     fig.text(x, y - 0.018, caption, fontsize=9, color="#333333", va="top")
 
 
+def _screenshot_page(pdf: PdfPages, title: str, path: Path, caption: str):
+    fig = _new_page(pdf, title, "Bukti screenshot resolusi 1920 × 1080")
+    _add_image(fig, path, 0.07, 0.17, 0.86, 0.68, caption)
+    pdf.savefig(fig, bbox_inches="tight")
+    plt.close(fig)
+
+
 def main():
     total_code_cells, executed_code_cells = _read_notebook_execution_status()
     counts = _warehouse_counts()
     analytics = _analytics()
 
-    bukti = BASE_DIR / "bukti"
-    screenshot_install = bukti / "screenshot_01_install_dependency.png"
-    screenshot_etl = bukti / "screenshot_02_etl_execution.png"
-    screenshot_validasi = bukti / "screenshot_03_validasi_tabel.png"
-    screenshot_query = bukti / "screenshot_04_hasil_query.png"
+    screenshot_dir = BASE_DIR / "bukti" / "screenshots"
+    screenshot_install = screenshot_dir / "01_install_dependency_1920x1080.png"
+    screenshot_etl = screenshot_dir / "02_etl_execution_1920x1080.png"
+    screenshot_validasi = screenshot_dir / "03_validasi_tabel_1920x1080.png"
+    screenshot_query = screenshot_dir / "04_hasil_query_1920x1080.png"
 
     chart_1 = BASE_DIR / "grafik" / "01_rata_rata_aqi_per_lokasi.png"
     chart_3 = BASE_DIR / "grafik" / "03_rata_rata_aqi_periode_waktu.png"
@@ -156,25 +163,50 @@ def main():
         pdf.savefig(fig, bbox_inches="tight")
         plt.close(fig)
 
-        # Halaman 2: Bukti instalasi + ETL
-        fig = _new_page(pdf, "Bukti Instalasi dan Proses ETL")
+        # Halaman 2-5: Setiap screenshot dibuat pada halaman PDF terpisah.
+        _screenshot_page(
+            pdf,
+            "Bukti 1 - Instalasi Dependency",
+            screenshot_install,
+            "Gambar 1. Bukti verifikasi dependency environment.",
+        )
+        _screenshot_page(
+            pdf,
+            "Bukti 2 - Eksekusi Notebook ETL",
+            screenshot_etl,
+            "Gambar 2. Bukti notebook ETL dijalankan.",
+        )
+        _screenshot_page(
+            pdf,
+            "Bukti 3 - Validasi Tabel Warehouse",
+            screenshot_validasi,
+            "Gambar 3. Bukti validasi jumlah record tabel warehouse.",
+        )
+        _screenshot_page(
+            pdf,
+            "Bukti 4 - Hasil Query Analitik",
+            screenshot_query,
+            "Gambar 4. Bukti hasil tiga query analitik.",
+        )
+
+        # Halaman 6: Ringkasan proses ETL
+        fig = _new_page(pdf, "Ringkasan Proses ETL")
         _write_wrapped(
             fig,
             0.07,
             0.90,
             (
-                "Berikut screenshot bukti instalasi dependency serta bukti eksekusi notebook ETL.\n"
+                "Bukti screenshot instalasi, eksekusi notebook, validasi, dan hasil query\n"
+                "disajikan masing-masing pada halaman terpisah.\n"
                 "Notebook status eksekusi: "
                 f"{executed_code_cells}/{total_code_cells} code cell sudah dieksekusi."
             ),
             width=95,
         )
-        _add_image(fig, screenshot_install, 0.07, 0.50, 0.86, 0.34, "Gambar 1. Bukti dependency environment")
-        _add_image(fig, screenshot_etl, 0.07, 0.08, 0.86, 0.34, "Gambar 2. Bukti eksekusi notebook ETL")
         pdf.savefig(fig, bbox_inches="tight")
         plt.close(fig)
 
-        # Halaman 3: Bukti validasi table + flow ETL
+        # Halaman 7: Validasi table + flow ETL
         fig = _new_page(pdf, "Validasi Hasil Loading dan Alur ETL")
         _write_wrapped(
             fig,
@@ -189,11 +221,10 @@ def main():
             ),
             width=95,
         )
-        _add_image(fig, screenshot_validasi, 0.07, 0.20, 0.86, 0.56, "Gambar 3. Validasi dim_sensors, dim_locations, dim_time, fact_sensor_readings")
         pdf.savefig(fig, bbox_inches="tight")
         plt.close(fig)
 
-        # Halaman 4: Query 1 + insight + chart
+        # Halaman 8: Query 1 + insight + chart
         fig = _new_page(pdf, "Query Analitik 1 - Kualitas Udara per Lokasi")
         _write_wrapped(
             fig,
@@ -214,7 +245,7 @@ def main():
         pdf.savefig(fig, bbox_inches="tight")
         plt.close(fig)
 
-        # Halaman 5: Query 2 + insight + chart
+        # Halaman 9: Query 2 + insight + chart
         fig = _new_page(pdf, "Query Analitik 2 - Pola AQI per Periode Waktu")
         _write_wrapped(
             fig,
@@ -235,7 +266,7 @@ def main():
         pdf.savefig(fig, bbox_inches="tight")
         plt.close(fig)
 
-        # Halaman 6: Query 3 + insight + kendala
+        # Halaman 10: Query 3 + insight + kendala
         fig = _new_page(pdf, "Query Analitik 3 - Aktivitas Sensor dan Kendala")
         _write_wrapped(
             fig,
@@ -253,11 +284,10 @@ def main():
             width=98,
             size=10,
         )
-        _add_image(fig, screenshot_query, 0.07, 0.43, 0.86, 0.34, "Gambar 6. Screenshot hasil 3 query analitik")
         _write_wrapped(
             fig,
             0.07,
-            0.26,
+            0.43,
             (
                 "Kendala dan solusi:\n"
                 "- Kendala: sempat muncul IndentationError pada data_loader.py.\n"
